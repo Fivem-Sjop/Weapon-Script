@@ -462,23 +462,6 @@ Citizen.CreateThread(function()
             DisableControlAction(1, 141, true)
             DisableControlAction(1, 142, true)
         end
-
-        --[[if Vehicle and IsPedInAnyPoliceVehicle(playerPed) then -- uit wegens niet gebruiken van deze functie
-            DisablePlayerVehicleRewards(PlayerId())
-            if(not hasBeenInPoliceVehicle) then
-                hasBeenInPoliceVehicle = true
-            end
-        else
-            if(hasBeenInPoliceVehicle) then
-                for i=1, #vehWeapons do
-                    if (HasPedGotWeapon(playerPed, vehWeapons[i]) and not alreadyHaveWeapon[i]) then
-                        TriggerEvent("PoliceVehicleWeaponDeleter:drop", vehWeapons[i])
-                        TriggerServerEvent("PoliceVehicleWeaponDeleter:askDropWeapon", vehWeapons[i])
-                    end
-                end
-                hasBeenInPoliceVehicle = false
-            end
-        end]]
     end
 end)
 
@@ -524,37 +507,6 @@ Citizen.SetTimeout(0, supressPeds)
 local _, weapon = GetCurrentPedWeapon(playerPed)
 
 
-
-
---[[local loaded = true
-local thirst, hunger
-AddEventHandler("esx_status:loaded", function()
-    Citizen.Wait(1000)
-
-    thirst = exports['esx_status']:getStatus('hunger')
-    hunger = exports['esx_status']:getStatus('thirst') -- mogelijk error fix aangezien wij dit niet gebruiken
-    loaded = true
-end)
-
-function GetHunger()
-    if not hunger then
-        if loaded then
-            hunger = exports['esx_status']:getStatus('hunger')
-        end
-        return 0
-    end
-    return hunger.getPercent()
-end
-
-function GetThirst()
-    if not thirst then
-        if loaded then
-            thirst = exports['esx_status']:getStatus('thirst')
-        end
-        return 0
-    end
-    return thirst.getPercent()
-end]]
 
 Citizen.CreateThread(function()
     local lastHealth = 0
@@ -605,23 +557,6 @@ Citizen.CreateThread(function()
     end
 end)
 
---[[RegisterNetEvent('onPlayerJoining')
-AddEventHandler('onPlayerJoining', function(playerServerId, playerName, playerSlotId)
-    local player = GetPlayerFromServerId(playerServerId)
-    Citizen.Wait(0)
-    local timeout = 0
-    local ped = GetPlayerPed(player)
-    local exists = DoesEntityExist(ped)
-    while timeout < 5 and not exists do
-        Citizen.Wait(200)
-        ped = GetPlayerPed(player)
-        exists = DoesEntityExist(ped)
-        timeout = timeout + 1
-    end
-    if not IsPlayerDead(player) then
-        ClearPedBloodDamage(ped)
-    end
-end)]]
 
 function IsHuman(model)
     model = model or GetEntityModel(PlayerPedId())
@@ -951,15 +886,9 @@ function GameEventTriggered(name, args)
     if name == "CEventNetworkEntityDamage" then
 
         local entity, destroyer, _, isFatal, weapon_old, weapon_old2, weapon = table.unpack(args)
-        --[64770,2267394,1086324736,0,0,0,-1569615261,0,0,0,0,1,0]
         if weapon == 0 or weapon == 1 then
             weapon = weapon
         end
-        -- if (weapon_old == 0 or weapon_old == 1 or type(weapon_old) ~= "number") and weapon ~= 0 then
-        --     weapon = weapon
-        -- else
-        --     weapon = weapon_old
-        -- end
         local model = GetEntityModel(entity)
         if gasCyls[model] then
             DecorSetBool(entity, "_DELETED", true)
@@ -1089,7 +1018,7 @@ function GameEventTriggered(name, args)
                 data.playerWeaponDamage = GetPlayerWeaponDamageModifier(PlayerId())
 
                 local msg = ("%s was hit in the %s with a %s by %s from %.2f. OldHealth: %s; newHealth: %s; attackerSpeed: %.2f; victimSpeed: %.2f;"):format(victim, data.bone, data.weapon, attacker, data.distance, health, data.newHealth, data.speedAttacker * 4.0, data.speedVictim * 4.0)
-                TriggerServerEvent("weapondeleter:combatlog", data, msg, dead)-- slim om hier ff een log toe te voegen kan dat kanker systeem van JD eruit
+                TriggerServerEvent("weapondeleter:combatlog", data, msg, dead)
                 if weapon == `WEAPON_UNARMED`
                     and health > 190
                     and newHealth < 50
@@ -1365,302 +1294,7 @@ function loadAnimDict(dict)
 	end
 end
 
--- this script puts certain large weapons on a player's back when it is not currently selected but still in there weapon wheel
--- by: minipunch
--- originally made for USA Realism RP (https://usarrp.net)
 
--- Add weapons to the 'compatable_weapon_hashes' table below to make them show up on a player's back (can use GetHashKey(...) if you don't know the hash) --
---[[local SETTINGS = {
-    back_bone = 24817,
-    x = 0.075,
-    y = -0.15,
-    z = -0.02,
-    x_rotation = 0.0,
-    y_rotation = 165.0,
-    z_rotation = 0.0,
-    compatable_weapon_hashes = {
-        -- melee:
-        --["prop_golf_iron_01"] = 1141786504, -- positioning still needs work
-        ["WEAPON_BAT"] = "w_me_bat",
-        ["WEAPON_POOLCUE"] = "w_me_poolcue",
-        --["prop_ld_jerrycan_01"] = 883325847,
-        -- assault rifles:
-        ["WEAPON_CARBINERIFLE"] = "w_ar_carbinerifle",
-        ["WEAPON_CARBINERIFLE_MK2"] = "w_ar_carbineriflemk2",
-        ["WEAPON_ASSAULTRIFLE"] = "w_ar_assaultrifle",
-        ["WEAPON_SPECIALCARBINE"] = "w_ar_specialcarbine",
-        ["WEAPON_BULLPUPRIFLE"] = "w_ar_bullpuprifle",
-        ["WEAPON_ADVANCEDRIFLE"] = "w_ar_advancedrifle",
-        -- sub machine guns:
-        ["WEAPON_MICROSMG"] = "w_sb_microsmg",
-        ["WEAPON_ASSAULTSMG"] = "w_sb_assaultsmg",
-        ["WEAPON_SMG"] = "w_sb_smg",
-        ["WEAPON_SMGMk2"] = "w_sb_smgmk2",
-        ["WEAPON_GUSENBERG"] = "w_sb_gusenberg",
-        -- sniper rifles:
-        ["WEAPON_SNIPERRIFLE"] = "w_sr_sniperrifle",
-        -- shotguns:
-        ["w_sg_assaultshotgun"] = -494615257,
-        ["w_sg_bullpupshotgun"] = -1654528753,
-        ["WEAPON_PUMPSHOTGUN"] = "w_sg_pumpshotgun",
-        ["WEAPON_MUSKET"] = -1466123874,
-        ["WEAPON_COMPACTRIFLE"] = "w_ar_assaultrifle_smg",
-        ["WEAPON_HEAVYSHOTGUN"] = "w_sg_heavyshotgun",
-        -- ["w_sg_sawnoff"] = 2017895192 don't show, maybe too small?
-        -- launchers:
-        ["w_lr_firework"] = 2138347493
-    },
-    offsets = {
-        -- x = up, y = forward, z = left
-        ["w_ar_assaultrifle_smg"] = {x = 0.175, y = -0.16, z = -0.0, xR = 0.0, yR = 165.0, zR = 5.0},
-        ["w_ar_carbinerifle"]   = {x = 0.075, y = -0.17, z = -0.02, xR = 0.0, yR = 165.0, zR = 5.0},
-        ["w_ar_assaultrifle"]   = {x = 0.075, y = -0.17, z = -0.02, xR = 0.0, yR = 165.0, zR = 5.0},
-        ["w_sb_smg"]            = {x = 0.075, y = -0.17, z = -0.02, xR = 0.0, yR = 165.0, zR = 5.0},
-        ["w_me_poolcue"]        = {x = 0.25, y = -0.15, z = -0.02, xR = 0.0, yR = -100.0, zR = 5.0},
-        ["prop_golf_iron_01"]   = {x = 0.11, y = -0.14, z = 0.0, xR = -75.0, yR = 185.0, zR = 5.0},
-        ["prop_ld_jerrycan_01"] = {x = 0.11, y = -0.14, z = 0.0, xR = -75.0, yR = 185.0, zR = 5.0},
-        ["w_me_bat"]            = {x = 0.24, y = -0.19, z = 0.0, xR = -75.0, yR = -90.0, zR = 5.0},
-     }
-}
-
-RegisterNetEvent('esx:addWeapon')
-AddEventHandler('esx:addWeapon', function(data)
-    Citizen.Wait(100)
-    PlayerData.loadout = ESX.GetPlayerDataKey('loadout')
-end)
-
-RegisterNetEvent('esx:removeWeapon')
-AddEventHandler('esx:removeWeapon', function(weaponName, ammo)
-    Citizen.Wait(100)
-    playerPed = PlayerPedId()
-    local attachModel = SETTINGS.compatable_weapon_hashes[weaponName]
-    local attached_object = attached_weapons[attachModel]
-    if attached_object then
-        local handle = GetObjectFromWeaponData(attached_object)
-        if not ESX.Game.TryDeleteEntity(handle) then
-            ESX.Game.DeleteObject(handle)
-        end
-        attached_weapons[attachModel] = nil
-    end
-    local objects = GetGamePool("CObject")
-    for i=1, #objects do
-        if GetEntityAttachedTo(objects[i]) == playerPed and GetEntityModel(objects[i]) == attachModel then
-            if not ESX.Game.TryDeleteEntity(objects[i]) then
-                ESX.Game.DeleteObject(objects[i])
-            end
-        end
-    end
-
-    PlayerData.loadout = ESX.GetPlayerDataKey('loadout')
-end)
-
-AddEventHandler("baseevents:pedChanged", function(ped, lastPed)
-    for name, attached_object in pairs(attached_weapons) do
-        local handle = DoesEntityExist(attached_object.handle) and attached_object.handle or NetworkGetEntityFromNetworkId(attached_object.netId)
-        if not ESX.Game.TryDeleteEntity(handle) then
-            ESX.Game.DeleteObject(handle)
-        end
-        attached_weapons[name] = nil
-    end
-end)
-
-function GetObjectFromWeaponData(weaponData)
-    if DoesEntityExist(weaponData.handle) then
-        return weaponData.handle
-    elseif NetworkDoesNetworkIdExist(weaponData.netId) then
-        local handle = NetworkGetEntityFromNetworkId(weaponData.netId)
-        if GetEntityModel(handle) == weaponData.model then
-            weaponData.handle = handle
-            return handle
-        end
-    end
-end
-
-local lastMe = PlayerPedId()
-Citizen.CreateThread(function()
-    while PlayerData.job == nil do
-        Citizen.Wait(500)
-    end
-    Citizen.Wait(1000)
-
-    local lastCheck = 10
-    while true do
-        xpcall(function()
-            local me = PlayerPedId()
-            ---------------------------------------
-            -- attach if player has large weapon --
-            ---------------------------------------
-            if IsEntityVisible(PlayerPedId()) then
-                local selectedWeapon = GetSelectedPedWeapon(me)
-                for i=1, #PlayerData.loadout do
-                    local v = PlayerData.loadout[i]
-                    if SETTINGS.compatable_weapon_hashes[v.name] then
-                        local attachModel = SETTINGS.compatable_weapon_hashes[v.name]
-                        local weaponHash = GetHashKey(v.name)
-                        if (not Vehicle or IsBike) and weaponHash ~= selectedWeapon and not attached_weapons[attachModel] then
-                            local offsets = SETTINGS.offsets[attachModel] or {}
-                            AttachWeapon(
-                                    attachModel,
-                                    weaponHash,
-                                    SETTINGS.back_bone,
-                                    offsets.x or SETTINGS.x,
-                                    offsets.y or SETTINGS.y,
-                                    offsets.z or SETTINGS.z,
-                                    offsets.xR or SETTINGS.x_rotation,
-                                    offsets.yR or SETTINGS.y_rotation,
-                                    offsets.zR or SETTINGS.z_rotation,
-                                    isMeleeWeapon(v.name)
-                            )
-                            me = PlayerPedId()
-                        end
-                        local attached_object = attached_weapons[attachModel]
-                        if attached_object and (selectedWeapon == attached_object.hash or (Vehicle and not IsBike)) then
-                            local handle = DoesEntityExist(attached_object.handle) and attached_object.handle or NetworkGetEntityFromNetworkId(attached_object.netId)
-                            if not ESX.Game.TryDeleteEntity(handle) then
-                                ESX.Game.DeleteObject(handle)
-                            end
-                            attached_weapons[attachModel] = nil
-                        end
-                    end
-                end
-            end
-
-            if lastCheck > 10 then
-                lastCheck = 0
-                PlayerData.loadout = ESX.GetPlayerDataKey("loadout")
-                for k,v in pairs(attached_weapons) do
-                    if DoesEntityExist(v.handle) then
-                        DecorSetInt(v.handle, "_LAST_LEFT", GetTime())
-                        AttachEntityToEntity(v.handle, me, v.bone, v.x, v.y, v.z, v.xR, v.yR, v.zR, 1, 1, 0, 0, 2, 1)
-                    elseif NetworkDoesNetworkIdExist(v.netId) then
-                        v.handle = GetObjectFromWeaponData(v)
-                    else
-                        attached_weapons[k] = nil
-                    end
-                end
-            end
-            lastCheck = lastCheck + 1
-
-            if lastMe ~= PlayerPedId() then
-                for name, attached_object in pairs(attached_weapons) do
-                    local handle = DoesEntityExist(attached_object.handle) and attached_object.handle or NetworkGetEntityFromNetworkId(attached_object.netId)
-                    if not ESX.Game.TryDeleteEntity(handle) then
-                        ESX.Game.DeleteObject(handle)
-                    end
-                    attached_weapons[name] = nil
-                end
-            end
-            lastMe = me
-        end, Traceback or debug.traceback)
-
-        Wait(1000)
-    end
-end)
-
-AddEventHandler('onResourceStop', function(resourceName)
-    if GetCurrentResourceName() == resourceName then
-        if focus then
-            ClearFocus()
-        end
-
-        for name, attached_object in pairs(attached_weapons) do
-            DeleteObject(attached_object.handle)
-            attached_weapons[name] = nil
-        end
-    end
-end)
-
-function RemoveAllWeapons()
-    for k,v in pairs(attached_weapons) do
-        if DoesEntityExist(v.handle) then
-            if not ESX.Game.TryDeleteEntity(v.handle) then
-                ESX.Game.DeleteObject(v.handle)
-            end
-        end
-
-        attached_weapons[k] = nil
-    end
-
-    local objects = GetGamePool("CObject")
-    local attachModels = {}
-    for k,v in pairs(SETTINGS.compatable_weapon_hashes) do
-        attachModels[GetHashKey(v)] = true
-    end
-    for i=1, #objects do
-        if GetEntityAttachedTo(objects[i]) == playerPed and attachModels[GetEntityModel(objects[i])] then
-            if not ESX.Game.TryDeleteEntity(objects[i]) then
-                ESX.Game.DeleteObject(objects[i])
-            end
-        end
-    end
-end
-
-AddEventHandler('onNoclip', function(value)
-    RemoveAllWeapons()
-end)
-
-function AttachWeapon(attachModel, modelHash, boneNumber, x, y, z, xR, yR, zR, isMelee)
-    playerPed = PlayerPedId()
-    local attachHash = GetHashKey(attachModel)
-    local objects = GetGamePool("CObject")
-    for i=1, #objects do
-        if GetEntityAttachedTo(objects[i]) == playerPed and GetEntityModel(objects[i]) == attachHash then
-            if not ESX.Game.TryDeleteEntity(objects[i]) then
-                ESX.Game.DeleteObject(objects[i])
-            end
-        end
-    end
-    -- if GetPedDrawableVariation(playerPed, 5) ~= 0 then
-    --     exports['esx_rpchat']:printToChat("WAPENS", "Rugtassen verbergen je wapen niet!", { r = 255 })
-    -- end
-
-    RequestModel(attachHash)
-    local timeout = 0
-    while not HasModelLoaded(attachHash) and timeout < 1000 do
-        timeout = timeout + 100
-        Wait(100)
-    end
-
-    local ped = PlayerPedId()
-    local bone = GetPedBoneIndex(ped, boneNumber)
-    local coords = GetEntityCoords(PlayerPedId())
-    local object = CreateObject(attachHash, coords, true, true, false)
-    local netId = NetworkGetNetworkIdFromEntity(object)
-    attached_weapons[attachModel] = {
-        hash = modelHash,
-        handle = object,
-        netId = netId,
-        model = attachModel
-    }
-
-    if attachModel == "prop_ld_jerrycan_01" then
-        x = x + 0.3
-    end
-
-    DecorSetInt(attached_weapons[attachModel].handle, "_LAST_LEFT", GetTime())
-    NetworkSetNetworkIdDynamic(netId, true)
-    SetNetworkIdCanMigrate(netId, false)
-
-    SetEntityCollision(attached_weapons[attachModel].handle, false, false)
-    attached_weapons[attachModel].x, attached_weapons[attachModel].y, attached_weapons[attachModel].z = x, y, z
-    attached_weapons[attachModel].xR, attached_weapons[attachModel].yR, attached_weapons[attachModel].zR = xR, yR, zR
-    attached_weapons[attachModel].bone = bone
-    if attachHash == GetEntityModel(attached_weapons[attachModel].handle) then
-        AttachEntityToEntity(attached_weapons[attachModel].handle, ped, bone, x, y, z, xR, yR, zR, 1, 1, 0, 0, 2, 1)
-    end
-    Citizen.Wait(500)
-
-    local timeout = 0
-    while not NetworkDoesNetworkIdExist(netId) and timeout < 1000 do
-        Citizen.Wait(100)
-        timeout = timeout + 100
-    end
-
-    if attached_weapons[attachModel] then
-        attached_weapons[attachModel].handle = GetObjectFromWeaponData(attached_weapons[attachModel])
-    end
-end]]
---einde
 AddEventHandler('updateTime', function(_time)
 	UpdateTime(_time)
 end)
@@ -1870,31 +1504,6 @@ function ManageRecoil(weapon)
         SetPedInfiniteAmmo(PlayerPedId(), true, `WEAPON_FIREEXTINGUISHER`)
     end
 end
-
---[[RegisterCommand("interior", function()
-    print("Interior ID: ", GetInteriorFromEntity(PlayerPedId()))
-    print("Roomkey: ", GetRoomKeyFromEntity(PlayerPedId()))
-    print("Interior info: ", GetInteriorInfo(GetInteriorFromGameplayCam()))
-    print("Interior position: ", GetInteriorPosition(GetInteriorFromGameplayCam()))
-end)
-
-RegisterCommand('getdumpster', function()
-    local NewBin, NewBinDistance = ESX.Game.GetClosestObject()
-    local trashcollectionpos = GetEntityCoords(NewBin)
-    local start = GetGameTimer()
-    local model = GetEntityModel(NewBin)
-    print(tostring(NewBin) .. ' : ' .. tostring(trafficLightObjects[model]))
-    Citizen.CreateThread(function()
-        print(tostring(model))
-        print(tostring(GetEntityCoords(NewBin)))
-        print(tostring(GetEntityRotation(NewBin)))
-        print(tostring(NetworkGetEntityIsNetworked(NewBin)))
-        while GetGameTimer() - start < 5000 do
-            Citizen.Wait(0)
-            ESX.Game.Utils.DrawText3D(trashcollectionpos, tostring(model))
-        end
-    end)
-end)]]
 
 
 Citizen.CreateThread(function()
